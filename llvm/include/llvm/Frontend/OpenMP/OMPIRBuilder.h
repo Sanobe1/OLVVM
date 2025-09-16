@@ -3594,8 +3594,8 @@ public:
       ArrayRef<BasicBlock *> DeallocBlocks)>;
 
   using TargetGenArgAccessorsCallbackTy = function_ref<InsertPointOrErrorTy(
-      Argument &Arg, Value *Input, Value *&RetVal, InsertPointTy AllocaIP,
-      InsertPointTy CodeGenIP)>;
+      Argument &Arg, Value *Input, Value *&RetVal, InsertPointTy AllocIP,
+      InsertPointTy CodeGenIP, ArrayRef<InsertPointTy> DeallocIPs)>;
 
   /// Generator for '#omp target'
   ///
