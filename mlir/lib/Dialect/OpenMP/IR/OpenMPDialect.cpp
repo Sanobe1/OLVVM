@@ -4709,7 +4709,7 @@ LogicalResult AllocateDirOp::verify() {
 //===----------------------------------------------------------------------===//
 
 LogicalResult AllocSharedMemOp::verify() {
-  return verifyAlignment(*getOperation(), getAlignment());
+  return verifyAlignment(*getOperation(), getMemAlignment());
 }
 
 //===----------------------------------------------------------------------===//
@@ -4717,10 +4717,7 @@ LogicalResult AllocSharedMemOp::verify() {
 //===----------------------------------------------------------------------===//
 
 LogicalResult FreeSharedMemOp::verify() {
-  return getHeapref().getDefiningOp<AllocSharedMemOp>()
-             ? success()
-             : emitOpError() << "'heapref' operand must be defined by an "
-                                "'omp.alloc_shared_memory' op";
+  return verifyAlignment(*getOperation(), getMemAlignment());
 }
 
 //===----------------------------------------------------------------------===//
