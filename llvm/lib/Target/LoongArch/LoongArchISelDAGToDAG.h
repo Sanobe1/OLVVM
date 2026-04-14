@@ -60,7 +60,7 @@ public:
 
   bool selectVSplat(SDNode *N, APInt &Imm, unsigned MinSizeInBits) const;
 
-  template <unsigned ImmSize, bool IsSigned = false>
+  template <unsigned ImmSize, unsigned EltSize = 0, bool IsSigned = false>
   bool selectVSplatImm(SDValue N, SDValue &SplatVal);
 
   bool selectVSplatUimmInvPow2(SDValue N, SDValue &SplatImm) const;
