@@ -38,6 +38,9 @@ MODULE_ANALYSIS("reg-usage", PhysicalRegisterUsageAnalysis())
 MODULE_ANALYSIS("stack-safety", StackSafetyGlobalAnalysis())
 MODULE_ANALYSIS("verify", VerifierAnalysis())
 
+MODULE_ANALYSIS("obf-annotations", ObfuscationAnnotationAnalysis())
+MODULE_ANALYSIS("obf-report", ObfReportAnalysis())
+
 #ifndef MODULE_ALIAS_ANALYSIS
 #define MODULE_ALIAS_ANALYSIS(NAME, CREATE_PASS)                               \
   MODULE_ANALYSIS(NAME, CREATE_PASS)
@@ -174,6 +177,11 @@ MODULE_PASS("tysan", TypeSanitizerPass())
 MODULE_PASS("verify", VerifierPass())
 MODULE_PASS("view-callgraph", CallGraphViewerPass())
 MODULE_PASS("wholeprogramdevirt", WholeProgramDevirtPass())
+
+MODULE_PASS("obfuscation", ObfuscationModulePass())
+MODULE_PASS("obf-dump-config", ObfDumpConfigPass())
+MODULE_PASS("obf-metrics", ObfMetricsPass())
+
 #undef MODULE_PASS
 
 #ifndef MODULE_PASS_WITH_PARAMS
@@ -377,6 +385,9 @@ FUNCTION_ANALYSIS("target-lib-info", TargetLibraryAnalysis())
 FUNCTION_ANALYSIS("uniformity", UniformityInfoAnalysis())
 FUNCTION_ANALYSIS("verify", VerifierAnalysis())
 
+
+FUNCTION_ANALYSIS("function-obf-context", FunctionObfContextAnalysis())
+
 #ifndef FUNCTION_ALIAS_ANALYSIS
 #define FUNCTION_ALIAS_ANALYSIS(NAME, CREATE_PASS)                             \
   FUNCTION_ANALYSIS(NAME, CREATE_PASS)
@@ -560,6 +571,10 @@ FUNCTION_PASS("view-dom-only", DomOnlyViewer())
 FUNCTION_PASS("view-post-dom", PostDomViewer())
 FUNCTION_PASS("view-post-dom-only", PostDomOnlyViewer())
 FUNCTION_PASS("wasm-eh-prepare", WasmEHPreparePass())
+
+
+FUNCTION_PASS("obfuscation-fn", ObfuscationFunctionDriverPass())
+
 #undef FUNCTION_PASS
 
 #ifndef FUNCTION_PASS_WITH_PARAMS
