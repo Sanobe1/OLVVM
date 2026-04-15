@@ -382,6 +382,11 @@
 #include "llvm/Transforms/Vectorize/SLPVectorizer.h"
 #include "llvm/Transforms/Vectorize/SandboxVectorizer/SandboxVectorizer.h"
 #include "llvm/Transforms/Vectorize/VectorCombine.h"
+#include "llvm/Transforms/Obfuscator.h"
+#include "llvm/Transforms/Obfuscator/ObfuscationAnnotationAnalysis.h"
+#include "llvm/Transforms/Obfuscator/ObfDebug.h"
+#include "llvm/Transforms/Obfuscator/ObfMetrics.h"
+#include "llvm/Transforms/Obfuscator/FunctionObfContextAnalysis.h" // only if you register it
 #include <optional>
 
 using namespace llvm;
