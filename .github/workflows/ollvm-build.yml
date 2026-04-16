@@ -112,7 +112,7 @@ jobs:
             -DLLVM_ENABLE_PROJECTS="llvm;clang" ^
             -DLLVM_ENABLE_RTTI=ON ^
             -DLLVM_ENABLE_EH=ON ^
-            -DLLVM_TARGETS_TO_BUILD="X86" ^
+            -DLLVM_TARGETS_TO_BUILD="X86;AArch64;ARM;RISCV" ^
             -DLLVM_INCLUDE_TESTS=ON ^
             -DLLVM_BUILD_TESTS=OFF ^
             -DLLVM_INCLUDE_BENCHMARKS=OFF ^
@@ -142,7 +142,7 @@ jobs:
             -DLLVM_ENABLE_PROJECTS="llvm;clang" \
             -DLLVM_ENABLE_RTTI=ON \
             -DLLVM_ENABLE_EH=ON \
-            -DLLVM_TARGETS_TO_BUILD="X86" \
+            -DLLVM_TARGETS_TO_BUILD="X86;AArch64;ARM;RISCV" \
             -DLLVM_INCLUDE_TESTS=ON \
             -DLLVM_BUILD_TESTS=OFF \
             -DLLVM_INCLUDE_BENCHMARKS=OFF \
