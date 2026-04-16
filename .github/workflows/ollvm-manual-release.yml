@@ -1,0 +1,67 @@
+name: Manual Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: 'Build run ID to pull artifacts from'
+        required: true
+      tag:
+        description: 'Release tag (e.g. v0.1.0)'
+        required: true
+
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - name: Download artifacts from previous run
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          run-id: ${{ inputs.run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          merge-multiple: true
+
+      - name: Keep Release builds only
+        run: |
+          find artifacts/ -name "*Debug*" -delete
+          echo "Remaining artifacts:"
+          ls -lh artifacts/
+
+      - name: Check artifacts exist
+        run: |
+          count=$(ls artifacts/ 2>/dev/null | wc -l)
+          echo "Found $count artifact(s)"
+          if [ "$count" -eq 0 ]; then
+            echo "No Release artifacts found, aborting"
+            exit 1
+          fi
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.tag }}
+          files: artifacts/*
+          draft: false
+          prerelease: ${{ contains(inputs.tag, '-rc') || contains(inputs.tag, '-beta') }}
+          body: |
+            ## LLVM 21 Obfuscator — ${{ inputs.tag }}
+
+            ### Platforms
+            | Artifact | OS |
+            |---|---|
+            | `ollvm21-linux-Release.tar.zst` | Linux x86_64 (ubuntu-24.04) |
+            | `ollvm21-windows-Release.7z` | Windows x64 (MSVC 2022) |
+
+            ### Cross-compilation targets
+            Built with `-DLLVM_TARGETS_TO_BUILD="X86;AArch64;ARM;RISCV"` — the following backends are included:
+            - **X86** — x86 / x86_64
+            - **AArch64** — ARM 64-bit (Apple Silicon, Linux ARM64)
+            - **ARM** — ARM 32-bit
+            - **RISCV** — RISC-V 32/64-bit
+
+     
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
