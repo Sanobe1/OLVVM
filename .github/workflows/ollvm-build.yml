@@ -178,22 +178,22 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           cd install
-          tar --zstd -cf ../ollvm21-linux-${{ matrix.build_type }}.tar.zst .
+          tar --zstd -cf ../ollvm22-linux-${{ matrix.build_type }}.tar.zst .
 
       - name: Package (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
           7z a -t7z -m0=lzma2 -mx=7 -mmt=on `
-            ollvm21-windows-${{ matrix.build_type }}.7z .\install\*
+            ollvm22-windows-${{ matrix.build_type }}.7z .\install\*
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ollvm21-${{ matrix.os }}-${{ matrix.build_type }}
+          name: ollvm22-${{ matrix.os }}-${{ matrix.build_type }}
           path: |
-            ollvm21-*.tar.zst
-            ollvm21-*.7z
+            ollvm22-*.tar.zst
+            ollvm22-*.7z
           retention-days: 14
           if-no-files-found: error
 

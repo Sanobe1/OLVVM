@@ -47,13 +47,13 @@ jobs:
           draft: false
           prerelease: ${{ contains(inputs.tag, '-rc') || contains(inputs.tag, '-beta') }}
           body: |
-            ## LLVM 21 Obfuscator — ${{ inputs.tag }}
+            ## LLVM 22 Obfuscator — ${{ inputs.tag }}
 
             ### Platforms
             | Artifact | OS |
             |---|---|
-            | `ollvm21-linux-Release.tar.zst` | Linux x86_64 (ubuntu-24.04) |
-            | `ollvm21-windows-Release.7z` | Windows x64 (MSVC 2022) |
+            | `ollvm22-linux-Release.tar.zst` | Linux x86_64 (ubuntu-24.04) |
+            | `ollvm22-windows-Release.7z` | Windows x64 (MSVC 2022) |
 
             ### Cross-compilation targets
             Built with `-DLLVM_TARGETS_TO_BUILD="X86;AArch64;ARM;RISCV"` — the following backends are included:
