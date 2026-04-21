@@ -195,7 +195,6 @@ namespace {
 		if (!Ty || !Ty->isIntegerTy())
 			return nullptr;
 
-
 		Function* F = B.GetInsertBlock() ? B.GetInsertBlock()->getParent() : nullptr;
 		if (F)
 			(void)ensureEntropyAllocaAtEntryBegin(*F);
@@ -212,7 +211,10 @@ namespace {
 			E = B.CreateBitCast(E32, Ty);
 
 		// Mix with a random constant, but keep it non-constant overall.
+		// Mask to BW bits so the value fits the target type.
 		uint64_t C = Rng.u64();
+		if (BW < 64)
+			C &= (1ULL << BW) - 1;
 		Value* K = ConstantInt::get(Ty, C);
 		Value* X = B.CreateXor(E, K, "sub.rand");
 		return B.CreateFreeze(X, "sub.rand.fr");
