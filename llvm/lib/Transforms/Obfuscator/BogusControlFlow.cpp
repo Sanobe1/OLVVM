@@ -327,6 +327,12 @@ namespace {
 		const ObfuscationConfig& obfConfig = getObfConfig(F, AM);
 		auto passConfig = obfConfig.getPassConfig("bcf");
 
+		if (!passConfig.has_value()) {
+			BCFConfig cfg;
+			cfg.enable = false;
+			return cfg;
+		}
+
 		BCFConfig cfg = BCFConfig::fromPassConfig(*passConfig);
 
 		if (!cfg.validate()) {
