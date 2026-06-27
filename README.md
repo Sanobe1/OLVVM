@@ -1,4 +1,4 @@
-# LLVM Obfuscator (LLVM 21, in-tree)
+# LLVM Obfuscator (LLVM 22, in-tree)
 
 An **in-tree** LLVM obfuscation framework integrated into the **new pass manager** (NPM).
 Configuration is driven by **source-level annotations** (`llvm.global.annotations`) and resolved once per module into a cached, deterministic configuration map.
