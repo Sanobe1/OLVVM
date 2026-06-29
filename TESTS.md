@@ -177,6 +177,62 @@ obf_reports/
 | `edge` | Edge-case IR shapes — int widths, switches, indirectbr, recursion, struct-by-value, vectors, nested loops, tail calls. |
 | `options` | Per-option sweeps (gated by `--extended`). |
 | `matrix` | Pairwise pass-interaction stress matrix (`--extended`). |
+
+---
+
+## Skip-channel assertions
+
+Passes that bail out for IR-level reasons (eligibility check failed,
+function caps tripped, IR budget exhausted) publish a structured skip
+reason via `recordObfPassSkip(FOC, "<passId>", "<reason>")`. The driver
+flushes these into the JSON report's `passes[].skip_reason` field and,
+when `-obf-no-skips` is enabled, escalates any skip to a fatal compile
+error.
+
+### Per-test field
+
+`TestCase.expect_no_skips` accepts three values:
+
+| Value | Behavior |
+|---|---|
+| `None` (default) | Inherit from runner CLI — see `--strict-skips` below. |
+| `True` | Force strict: any skip aborts. Cheap CLI fatal when `allowed_skip_reasons` is empty; JSON post-check otherwise. |
+| `False` | Force lenient: skips tolerated regardless of CLI mode. Use for tests that legitimately exercise eligibility bail-outs (EH programs, indirectbr IR). |
+
+`TestCase.allowed_skip_reasons` (`set[str]`) — when non-empty, the strict
+CLI gate is replaced with a JSON post-check that allows only those reason
+tokens (e.g. `{"budget_exhausted"}` for budget-exhaustion tests).
+
+### Suite-wide flag
+
+`--strict-skips` (off by default) flips the inherited default so that any
+test with two or more passes auto-asserts no silent skips. Tests with an
+explicit `expect_no_skips=False` or a populated `allowed_skip_reasons`
+keep their per-case behavior.
+
+Recommended for CI nightly runs:
+
+```bash
+python llvm/utils/obfuscator/obf_runtime_tests.py \
+  --build-dir <build> --extended --exhaustive-combos --combo-max-size 3 \
+  --strict-skips
+```
+
+Common reason tokens currently emitted:
+
+- `eh_unsupported`, `callbr`, `indirectbr already`, `naked`,
+  `too few blocks`, `too many blocks` — `vm` eligibility
+- `ineligible` — generic eligibility fallback (`bcf`, `split`, `adec`,
+  `flattening`)
+- `flatten_failed` — `flattening` ran but inner CFG rewrite returned false
+- `invalid_loop_count`, `invalid_num_param` — pass-config validation
+- `budget_exhausted` — driver IR budget gate
+- `cap_max_function_insts`, `cap_max_function_blocks`,
+  `cap_max_loop_depth` — function-level caps
+
+Reference test: [meta_no_skips_full_pipeline](llvm/utils/obfuscator/cases/extended.py)
+runs the full pipeline on a benign arithmetic function and asserts that
+no pass silently degrades.
 | `exhaustive` | Every k-subset of passes (`--exhaustive-combos`). |
 
 ---
