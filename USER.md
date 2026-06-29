@@ -228,6 +228,12 @@ Both override modes still run conflict checks.
 | `-obf-strip-debug` | off | Strip debug metadata from obfuscated functions only. |
 | `-obf-debug-synthetic` | on | Assign synthetic line-0 debug locations to obfuscation-inserted instructions so source steppers do not jump erratically. |
 
+### Shield auto-enable
+
+| Option | Default | Meaning |
+|---|---:|---|
+| `-obf-shield-auto` | off | Auto-enable `shield` with default knobs for any function that has any obfuscation pass annotated but no explicit `shield(...)` token. Explicit `shield(...)` annotations are always honored regardless of this flag. |
+
 ### Reports
 
 | Option | Default | Meaning |
