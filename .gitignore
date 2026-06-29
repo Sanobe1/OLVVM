@@ -17,6 +17,8 @@
 *.rej
 # Byte compiled python modules.
 *.pyc
+# Jupyter notebook checkpoint directories.
+.ipynb_checkpoints/
 # vim swap files
 .*.sw?
 .sw?
@@ -88,4 +90,27 @@ pythonenv*
 /obf_rt_work/
 /obf_reports/
 /llvm/lib/Transforms/Obfuscator/out/
+/llvm/lib/Transforms/Obfuscator/.vs/
+/llvm/lib/Transforms/Obfuscator/build/
+/llvm/lib/Transforms/Obfuscator/build-*/
 /llvm/test/Transforms/Obfuscator/
+
+# Obfuscator source tree must not contain compiled artefacts (path-anchored
+# so upstream LLVM test inputs are not masked).
+/llvm/lib/Transforms/Obfuscator/**/*.bc
+/llvm/lib/Transforms/Obfuscator/**/*.o
+/llvm/lib/Transforms/Obfuscator/**/*.obj
+/llvm/lib/Transforms/Obfuscator/**/*.lib
+/llvm/lib/Transforms/Obfuscator/**/*.exe
+/llvm/lib/Transforms/Obfuscator/**/*.pdb
+/llvm/lib/Transforms/Obfuscator/**/*.ilk
+/llvm/lib/Transforms/Obfuscator/**/*.exp
+/llvm/lib/Transforms/Obfuscator/**/*.dll
+/llvm/lib/Transforms/Obfuscator/**/*.so
+/llvm/lib/Transforms/Obfuscator/**/*.dylib
+/llvm/lib/Transforms/Obfuscator/**/*.a
+# aes_stub generated header (produced by aes_bin2c.py at build time).
+/llvm/lib/Transforms/Obfuscator/aes_stub/aes_stub_bc.inc
+
+# Obfuscator project-meta scratch (notebook + outputs in repo root).
+/.ipynb_checkpoints/

@@ -779,7 +779,7 @@ To add a new opcode:
 4. Add the handler `BasicBlock` in `VMImpl::buildOpcodeHandlers()` (choose the appropriate
    group: `buildHandlersIntArith`, `buildHandlersMem`, etc.) in `VMPass_Impl.cpp`.
 5. Update the `VMPass_Verifier` in `VMPass_Verifier.h/cpp` to handle the new opcode.
-6. Add a runtime test case in `obf_runtime_test.py` that exercises the new instruction type.
+6. Add a runtime test case in `llvm/utils/obfuscator/obf_runtime_tests.py` that exercises the new instruction type.
 7. Update this document and the ISA tables above.
 
 > [!NOTE]

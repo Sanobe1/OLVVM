@@ -64,7 +64,8 @@ Module-only:
 
 ### 1) Build LLVM with the obfuscator
 
-This project lives **inside** an LLVM 21 checkout.
+This project lives **inside** an LLVM 22 checkout (branch `ollvm-22.x`).
+The `ollvm-21.x` branch tracks LLVM 21 and is maintained in parallel.
 
 **Linux / macOS (Ninja, Release):**
 

@@ -104,6 +104,11 @@ Aliases are case-insensitive. Canonical IDs in reports and manifests are always 
 > of annotation order. See [Choosing an obfuscation strategy](#choosing-an-obfuscation-strategy)
 > for the effective execution order.
 
+> [!NOTE]
+> An internal `aes_stub` module pass also exists. It is **not user-callable** via annotations —
+> it is auto-linked when `strenc` or `vm` (with `useAES=1`) is enabled, and embeds the shared
+> `__obf_aes_ctr_decrypt` runtime into the module. You do not need to mention it in `obf:` specs.
+
 ### Parameter parsing rules
 
 - Keys are `[A-Za-z0-9_]` (no dashes).
@@ -176,26 +181,77 @@ opt -passes=obf-metrics -S test.ll -o /dev/null > metrics.jsonl
 
 ## Global command-line options
 
+### Core
+
 | Option | Default | Meaning |
 |---|---:|---|
 | `-obf-seed=<N>` | 0 | Base seed. Non-zero makes all runs reproducible. |
 | `-obf-deterministic` | off | When seed is 0: derive module seed from module identifier hash (otherwise uses `random_device`). |
 | `-obf-verify` | off | Run IR verification before/after each obfuscation stage. |
 | `-obf-verbose` | off | Print extra info (parsing, skips, budgets, pipeline order, etc.). |
-| `-obf-max-function-insts=<N>` | 50000 | Skip functions larger than N instructions. |
-| `-obf-max-function-blocks=<N>` | 2000 | Skip functions larger than N basic blocks. |
-| `-obf-max-loop-depth=<N>` | 12 | Skip functions whose loop nesting depth exceeds N. |
-| `-obf-ir-budget-multiplier=<N>` | 50 | Budget limit = `insts_before × N` (clamped to hardcap). |
-| `-obf-ir-budget-hardcap=<N>` | 200000 | Absolute hard cap for the IR budget. |
-| `-obf-seed-manifest=<path>` | "" | Write a JSON seed manifest (base/module/function/pass seeds). |
-| `-obf-strip-debug` | off | Strip debug metadata explicitly. |
-| `-obf-debug-synthetic` | off | Mark obfuscation-inserted instructions as synthetic debug info. |
-| `-obf-report-dir=<dir>` | "" | Emit report artifacts (CFG DOT files, JSON) into this directory. |
-| `-obf-report-json=<path>` | "" | Write report JSON to this path (`-` = stdout). |
+| `-obf-max-function-insts=<N>` | 0 (off) | Skip functions larger than N instructions. |
+| `-obf-max-function-blocks=<N>` | 0 (off) | Skip functions larger than N basic blocks. |
+| `-obf-max-loop-depth=<N>` | 0 (off) | Skip functions whose loop nesting depth exceeds N. |
+
+### IR budget
+
+| Option | Default | Meaning |
+|---|---:|---|
+| `-obf-ir-budget-multiplier=<N>` | 50 | Budget limit = `insts_before × N` (clamped by `-obf-ir-budget-max`). 0 = unlimited. |
+| `-obf-ir-budget-max=<N>` | 0 (off) | Absolute IR instruction ceiling per function. 0 = no hard cap. |
 
 > [!NOTE]
 > Budget knobs are global — they cannot currently be expressed as per-function annotation tokens.
 > Use the command-line options above to tune budgets globally.
+
+### Pipeline ordering overrides
+
+| Option | Default | Meaning |
+|---|---:|---|
+| `-obf-pipeline-ordering=<csv>` | "" | Explicit comma-separated pipeline order (e.g. `mba,split,bcf,flattening`). Listed passes run first in this order; remaining enabled passes are appended in topological order. Unknown names are fatal. |
+| `-obf-pipeline-ordering-ann` | off | Use the per-function annotation order verbatim instead of topological sort. Ignored when `-obf-pipeline-ordering` is set. |
+
+The default is topological sort with conflict enforcement (e.g. `vm` + `flattening` rejected).
+Both override modes still run conflict checks.
+
+### Seed manifest
+
+| Option | Default | Meaning |
+|---|---:|---|
+| `-obf-seed-manifest=<path>` | "" | Write a JSON seed manifest (base/module/function/pass seeds) to stderr if set to `-`, else to the given path. |
+| `-obf-seed-manifest-md` | off | Also emit per-pass seed manifest into LLVM IR metadata (`obf.seed.manifest.<passId>`). |
+
+### Debug info
+
+| Option | Default | Meaning |
+|---|---:|---|
+| `-obf-strip-debug` | off | Strip debug metadata from obfuscated functions only. |
+| `-obf-debug-synthetic` | on | Assign synthetic line-0 debug locations to obfuscation-inserted instructions so source steppers do not jump erratically. |
+
+### Reports
+
+| Option | Default | Meaning |
+|---|---:|---|
+| `-obf-report-dir=<dir>` | "" | Emit report artifacts (CFG DOT files, JSON) into this directory. |
+| `-obf-report-json=<path>` | "" | Write report JSON to this path (`-` = stdout). |
+
+### Anti-decompiler (`adec`) tuning
+
+| Option | Default | Meaning |
+|---|---:|---|
+| `-adec-gadgets-file=<paths>` | "" | Comma-separated JSON gadget files merged into the global pool. |
+| `-adec-disable-builtin-gadgets` | off | Drop compile-time built-in gadget tables; use only user files / annotations. |
+| `-adec-clobbers-x86=<csv>` | (built-in) | Override default inline-asm clobber list for x86_64. Comma-separated short register names. |
+| `-adec-clobbers-aarch64=<csv>` | (empty) | Override default inline-asm clobber list for aarch64. |
+| `-adec-techniques=<csv>` | "" (all) | Whitelist of technique names (`asmGadgets,indirectBr,deadDecoy,stackPollution,callTrampoline,aliasConfusion,fakeLoop,rdtscStretch,constLaunder`). |
+| `-adec-categories=<csv>` | "" (all) | Gadget category filter (`anti-disasm,anti-trace,desync,...`). |
+| `-adec-budget-split=<key:pct,...>` | (defaults) | Per-technique budget percent split. Keys: `asm,ibr,decoy,call,alias,loop,rdtsc,clndr`. |
+| `-adec-prefix=<name>` | `adec` | IR-name prefix for adec artifacts. Override with per-build random value to defeat signature scans against canonical `adec.*` names. |
+| `-adec-randomize-consts` | off | Replace hard-coded decoy payload constants with RNG values. |
+
+> [!NOTE]
+> Per-function annotation parameters (`adec(gadgets="path",techniques="...",categories="...",asmInline="A;B;C")`)
+> override the CLI flags above when both are present.
 
 ---
 

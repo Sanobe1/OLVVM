@@ -177,7 +177,7 @@ Each pass consumes from the remaining budget as the instruction count grows.
 When the budget is exhausted (or the hard cap is hit), later passes in the pipeline
 may be skipped. Budget state and utilization are recorded in the report JSON.
 
-Global knobs: `-obf-ir-budget-multiplier` (default 50×), `-obf-ir-budget-hardcap` (default 200 000).
+Global knobs: `-obf-ir-budget-multiplier` (default 50×), `-obf-ir-budget-max` (default 0 = no hard cap).
 
 ---
 
@@ -390,7 +390,7 @@ Checklist (minimal):
    - Emit `obf.*` instruction names and/or metadata for difficulty scoring.
    - Per-pass CFG snapshots are automatic (the driver handles them when enabled).
 6. **Tests**:
-   - Add or extend runtime test cases in `obf_runtime_test.py`.
+   - Add or extend runtime test cases in `llvm/utils/obfuscator/obf_runtime_tests.py`.
    - Add a report regression when feasible.
 
 ---
