@@ -7086,18 +7086,17 @@ bool ASTContext::UnwrapSimilarTypes(QualType &T1, QualType &T2,
     return true;
   }
 
-  if (const auto *T1MPType = T1->getAs<MemberPointerType>(),
-      *T2MPType = T2->getAs<MemberPointerType>();
+  if (const auto *T1MPType = T1->getAsCanonical<MemberPointerType>(),
+      *T2MPType = T2->getAsCanonical<MemberPointerType>();
       T1MPType && T2MPType) {
-    if (auto *RD1 = T1MPType->getMostRecentCXXRecordDecl(),
-        *RD2 = T2MPType->getMostRecentCXXRecordDecl();
-        RD1 != RD2 && RD1->getCanonicalDecl() != RD2->getCanonicalDecl())
+    // Compare the qualifiers of the canonical type, as the non-canonical type
+    // may have qualifiers pointing to a base or derived class.
+    if (T1MPType->getQualifier() != T2MPType->getQualifier())
       return false;
-    if (T1MPType->getQualifier().getCanonical() !=
-        T2MPType->getQualifier().getCanonical())
-      return false;
-    T1 = T1MPType->getPointeeType();
-    T2 = T2MPType->getPointeeType();
+    // Get the pointee types of the non-canonical type, in order to preserve
+    // their sugar.
+    T1 = T1->getAs<MemberPointerType>()->getPointeeType();
+    T2 = T2->getAs<MemberPointerType>()->getPointeeType();
     return true;
   }
 
@@ -7244,9 +7243,12 @@ TemplateName ASTContext::getCanonicalTemplateName(TemplateName Name,
     return TemplateName(cast<TemplateDecl>(Template->getCanonicalDecl()));
   }
 
-  case TemplateName::OverloadedTemplate:
   case TemplateName::AssumedTemplate:
-    llvm_unreachable("cannot canonicalize unresolved template");
+    // An assumed template is just a name, so it is already canonical.
+    return Name;
+
+  case TemplateName::OverloadedTemplate:
+    llvm_unreachable("cannot canonicalize overloaded template");
 
   case TemplateName::DependentTemplate: {
     DependentTemplateName *DTN = Name.getAsDependentTemplateName();

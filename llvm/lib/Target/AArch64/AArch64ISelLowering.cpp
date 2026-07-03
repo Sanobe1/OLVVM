@@ -1523,8 +1523,8 @@ AArch64TargetLowering::AArch64TargetLowering(const TargetMachine &TM,
       setOperationAction(ISD::GET_ACTIVE_LANE_MASK, VT, Legal);
     }
 
-    if (Subtarget->hasSVE2p1() ||
-        (Subtarget->hasSME2() && Subtarget->isStreaming()))
+    if (Subtarget->isSVEorStreamingSVEAvailable() &&
+        (Subtarget->hasSVE2p1() || Subtarget->hasSME2()))
       setOperationAction(ISD::GET_ACTIVE_LANE_MASK, MVT::nxv32i1, Custom);
 
     for (auto VT : {MVT::v16i8, MVT::v8i8, MVT::v4i16, MVT::v2i32})
@@ -9328,7 +9328,8 @@ bool AArch64TargetLowering::isEligibleForTailCallOptimization(
   if (CallAttrs.requiresSMChange() || CallAttrs.requiresLazySave() ||
       CallAttrs.requiresPreservingAllZAState() ||
       CallAttrs.requiresPreservingZT0() ||
-      CallAttrs.caller().hasStreamingBody())
+      CallAttrs.caller().hasStreamingBody() || CallAttrs.caller().isNewZA() ||
+      CallAttrs.caller().isNewZT0())
     return false;
 
   // Functions using the C or Fast calling convention that have an SVE signature
@@ -9668,7 +9669,7 @@ static bool shouldLowerTailCallStackArg(const MachineFunction &MF,
       if (CallOffset != MFI.getObjectOffset(FI))
         return true;
       uint64_t SizeInBits = LoadNode->getMemoryVT().getFixedSizeInBits();
-      if (SizeInBits / 8 != static_cast<uint64_t>(MFI.getObjectSize(FI)))
+      if (SizeInBits != VA.getValVT().getSizeInBits())
         return true;
       return false;
     }
@@ -19288,7 +19289,8 @@ performActiveLaneMaskCombine(SDNode *N, TargetLowering::DAGCombinerInfo &DCI,
     return While;
 
   if (!N->getValueType(0).isScalableVector() ||
-      (!ST->hasSVE2p1() && !(ST->hasSME2() && ST->isStreaming())))
+      !ST->isSVEorStreamingSVEAvailable() ||
+      !(ST->hasSVE2p1() || ST->hasSME2()))
     return SDValue();
 
   // Count the number of users which are extract_vectors.
@@ -19834,6 +19836,10 @@ static SDValue performBuildShuffleExtendCombine(SDValue BV, SelectionDAG &DAG) {
       return SDValue();
 
     unsigned Opc = Op.getOpcode();
+    if (BV.getOpcode() == ISD::VECTOR_SHUFFLE &&
+        (Opc != ISD::SIGN_EXTEND && Opc != ISD::ZERO_EXTEND))
+      return SDValue();
+
     if (Opc == ISD::ANY_EXTEND)
       continue;
 
@@ -24413,33 +24419,6 @@ static SDValue performUzpCombine(SDNode *N, SelectionDAG &DAG,
   if (N->getOpcode() == AArch64ISD::UZP2)
     return SDValue();
 
-  // uzp1(x, undef) -> concat(truncate(x), undef)
-  if (Op1.isUndef()) {
-    EVT BCVT = MVT::Other, HalfVT = MVT::Other;
-    switch (ResVT.getSimpleVT().SimpleTy) {
-    default:
-      break;
-    case MVT::v16i8:
-      BCVT = MVT::v8i16;
-      HalfVT = MVT::v8i8;
-      break;
-    case MVT::v8i16:
-      BCVT = MVT::v4i32;
-      HalfVT = MVT::v4i16;
-      break;
-    case MVT::v4i32:
-      BCVT = MVT::v2i64;
-      HalfVT = MVT::v2i32;
-      break;
-    }
-    if (BCVT != MVT::Other) {
-      SDValue BC = DAG.getBitcast(BCVT, Op0);
-      SDValue Trunc = DAG.getNode(ISD::TRUNCATE, DL, HalfVT, BC);
-      return DAG.getNode(ISD::CONCAT_VECTORS, DL, ResVT, Trunc,
-                         DAG.getUNDEF(HalfVT));
-    }
-  }
-
   if (SDValue Urshr = tryCombineExtendRShTrunc(N, DAG))
     return Urshr;
 
@@ -24480,6 +24459,33 @@ static SDValue performUzpCombine(SDNode *N, SelectionDAG &DAG,
   // These optimizations only work on little endian.
   if (!DAG.getDataLayout().isLittleEndian())
     return SDValue();
+
+  // uzp1(x, undef) -> concat(truncate(x), undef)
+  if (Op1.isUndef()) {
+    EVT BCVT = MVT::Other, HalfVT = MVT::Other;
+    switch (ResVT.getSimpleVT().SimpleTy) {
+    default:
+      break;
+    case MVT::v16i8:
+      BCVT = MVT::v8i16;
+      HalfVT = MVT::v8i8;
+      break;
+    case MVT::v8i16:
+      BCVT = MVT::v4i32;
+      HalfVT = MVT::v4i16;
+      break;
+    case MVT::v4i32:
+      BCVT = MVT::v2i64;
+      HalfVT = MVT::v2i32;
+      break;
+    }
+    if (BCVT != MVT::Other) {
+      SDValue BC = DAG.getBitcast(BCVT, Op0);
+      SDValue Trunc = DAG.getNode(ISD::TRUNCATE, DL, HalfVT, BC);
+      return DAG.getNode(ISD::CONCAT_VECTORS, DL, ResVT, Trunc,
+                         DAG.getUNDEF(HalfVT));
+    }
+  }
 
   // uzp1(bitcast(x), bitcast(y)) -> uzp1(x, y)
   // Example:
@@ -27652,10 +27658,10 @@ performSignExtendInRegCombine(SDNode *N, TargetLowering::DAGCombinerInfo &DCI,
     SDValue ExtOp = Src->getOperand(0);
     auto VT = cast<VTSDNode>(N->getOperand(1))->getVT();
     EVT EltTy = VT.getVectorElementType();
-    (void)EltTy;
 
-    assert((EltTy == MVT::i8 || EltTy == MVT::i16 || EltTy == MVT::i32) &&
-           "Sign extending from an invalid type");
+    if (EltTy.getSizeInBits() >
+        ExtOp.getValueType().getScalarType().getSizeInBits())
+      return SDValue();
 
     EVT ExtVT = VT.getDoubleNumVectorElementsVT(*DAG.getContext());
 
@@ -29102,8 +29108,8 @@ void AArch64TargetLowering::ReplaceExtractSubVectorResults(
 
 void AArch64TargetLowering::ReplaceGetActiveLaneMaskResults(
     SDNode *N, SmallVectorImpl<SDValue> &Results, SelectionDAG &DAG) const {
-  assert((Subtarget->hasSVE2p1() ||
-          (Subtarget->hasSME2() && Subtarget->isStreaming())) &&
+  assert((Subtarget->isSVEorStreamingSVEAvailable() &&
+          (Subtarget->hasSVE2p1() || Subtarget->hasSME2())) &&
          "Custom lower of get.active.lane.mask missing required feature.");
 
   assert(N->getValueType(0) == MVT::nxv32i1 &&
@@ -31532,13 +31538,9 @@ AArch64TargetLowering::LowerPARTIAL_REDUCE_MLA(SDValue Op,
   EVT OrigResultVT = ResultVT;
   EVT OpVT = LHS.getValueType();
 
-  bool ConvertToScalable =
-      ResultVT.isFixedLengthVector() &&
-      useSVEForFixedLengthVectorVT(ResultVT, /*OverrideNEON=*/true);
-
   // We can handle this case natively by accumulating into a wider
   // zero-padded vector.
-  if (!ConvertToScalable && ResultVT == MVT::v2i32 && OpVT == MVT::v16i8) {
+  if (ResultVT == MVT::v2i32 && OpVT == MVT::v16i8) {
     SDValue ZeroVec = DAG.getConstant(0, DL, MVT::v4i32);
     SDValue WideAcc = DAG.getInsertSubvector(DL, ZeroVec, Acc, 0);
     SDValue Wide =
@@ -31546,6 +31548,10 @@ AArch64TargetLowering::LowerPARTIAL_REDUCE_MLA(SDValue Op,
     SDValue Reduced = DAG.getNode(AArch64ISD::ADDP, DL, MVT::v4i32, Wide, Wide);
     return DAG.getExtractSubvector(DL, MVT::v2i32, Reduced, 0);
   }
+
+  bool ConvertToScalable =
+      ResultVT.isFixedLengthVector() &&
+      useSVEForFixedLengthVectorVT(ResultVT, /*OverrideNEON=*/true);
 
   if (ConvertToScalable) {
     ResultVT = getContainerForFixedLengthVector(DAG, ResultVT);

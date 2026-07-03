@@ -513,6 +513,12 @@ Improvements to Clang's diagnostics
 - Clang now generates a fix-it for C++20 designated initializers when the 
   initializers do not match the declaration order in the structure. 
 
+- No longer emitting a ``-Wpre-c2y-compat`` or extension diagnostic about use
+  of octal literals with a ``0o`` prefix, and no longer emitting a
+  ``-Wdeprecated-octal-literals`` diagnostic for use of octal literals without
+  a ``0o`` prefix, when the literal is expanded from a macro defined in a
+  system header. (#GH192389)
+
 Improvements to Clang's time-trace
 ----------------------------------
 
@@ -571,6 +577,13 @@ Bug Fixes in This Version
 - Fixed a crash when parsing malformed #pragma clang loop vectorize_width(4,8,16)
   by diagnosing invalid comma-separated argument lists. (#GH166325)
 - Clang now treats enumeration constants of fixed-underlying enums as the enumerated type. (#GH172118)
+- Fixed a failed assertion in the preprocessor when ``__has_embed`` parameters are missing parentheses. (#GH175088)
+- Fixed the interaction between ``-pedantic-errors`` and ``-Wno-error=X``.
+  Previously, ``-Wno-error=X`` failed to downgrade ``-pedantic-errors``
+  diagnostics to warnings (e.g., ``-pedantic-errors -Wno-error=long-long``
+  still emitted an error for ``long long`` in C89 mode). Now ``-Wno-error=X``
+  correctly downgrades the diagnostic to a warning, matching GCC's behavior.
+  (#GH184250)
 
 Bug Fixes to Compiler Builtins
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -654,6 +667,7 @@ Bug Fixes to C++ Support
 - Fixed a crash when parsing the ``enable_if`` attribute on C function declarations with identifier-list parameters. (#GH173826)
 - Fixed an assertion failure triggered by nested lambdas during capture handling. (#GH172814)
 - Fixed an assertion failure in vector conversions involving instantiation-dependent template expressions. (#GH173347)
+- Fixed an issue where recursive instantiation could lead to escape of SFINAE errors. (#GH179118)
 - Fixed an assertion failure in floating conversion narrowing caused by C++ constant expression checks in C23 mode. (#GH173847)
 
 Bug Fixes to AST Handling
@@ -671,6 +685,9 @@ Miscellaneous Bug Fixes
 
 Miscellaneous Clang Crashes Fixed
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+- Fixed a crash when attempting to jump over initialization of a variable with variably modified type. (#GH175540)
+- Fixed a crash when ``decltype(__builtin_FUNCTION())`` is used as a template type argument. (#GH167433)
 
 OpenACC Specific Changes
 ------------------------
@@ -703,6 +720,7 @@ X86 Support
 Arm and AArch64 Support
 ^^^^^^^^^^^^^^^^^^^^^^^
 - Support has been added for the following processors (command-line identifiers in parentheses):
+
   - Ampere Computing Ampere1C (``ampere1c``)
   - Arm C1-Nano (``c1-nano``)
   - Arm C1-Pro (``c1-pro``)
@@ -710,6 +728,11 @@ Arm and AArch64 Support
   - Arm C1-Ultra (``c1-ultra``)
 - More intrinsics for the following AArch64 instructions:
   FCVTZ[US], FCVTN[US], FCVTM[US], FCVTP[US], FCVTA[US]
+- Support level for Function Multi-Versioning (FMV) has been upgraded to Release in ACLE.
+
+  - Resolver functions can use the PAC and BTI hardening settings.
+  - Users can override function version priority.
+  - Unreachable function versions are diagnosed and ignored.
 
 Android Support
 ^^^^^^^^^^^^^^^
@@ -724,6 +747,15 @@ Windows Support
 LoongArch Support
 ^^^^^^^^^^^^^^^^^
 - Enable linker relaxation by default for loongarch64.
+
+- Introduce LASX and LSX conversion intrinsics.
+
+- `__attribute__((target("lasx")))` now implies the `lsx` feature.
+
+- DWARF fission is now compatible with linker relaxations, allowing `-gsplit-dwarf` and `-mrelax`
+  to be used together when building for the LoongArch platform.
+
+- Add support for LoongArch32, including toolchain options and pre-defined macros.
 
 RISC-V Support
 ^^^^^^^^^^^^^^
@@ -767,6 +799,13 @@ CUDA Support
   device architecture flags.
 
 - Support calling `consteval` function between different target.
+
+PowerPC Support
+^^^^^^^^^^^^^^^
+
+- Prototyped Dense Math Facility builtins.
+- Prototyped initial support for AMO load builtins.
+- Add support for ``-fpatchable-function-entry`` on PPC64LE.
 
 AIX Support
 ^^^^^^^^^^^
@@ -885,13 +924,37 @@ Crash and bug fixes
 - The ``core.builtin.BuiltinFunctions`` checker crashed when passing
   ``_BitInt(N)`` or ``__int128_t`` to ``__builtin_add_overflow`` or similar
   checked arithmetic builtin functions. (#GH173795)
+- Fixed a crash introduced in clang-20 when analyzing some "swap" functions.
+  (#GH178797)
+- Fixed a crash introduced in clang-20 in the ``unix.Malloc`` checker when
+  analyzing functions that had both of the ``ownership_returns`` and
+  ``ownership_takes`` attributes. (#GH183344)
 
 Improvements
 ^^^^^^^^^^^^
 
-- The `expand-macros <https://clang.llvm.org/docs/analyzer/user-docs/Options.html#expand-macros>`__
+.. |ss| raw:: html
+
+   <strike>
+
+.. |se| raw:: html
+
+   </strike>
+
+.. |br| raw:: html
+
+   <br />
+
+- |ss| The `expand-macros <https://clang.llvm.org/docs/analyzer/user-docs/Options.html#expand-macros>`__
   analyzer config option now formats the macro expansions using LLVM-style
-  clang-format. (#GH154743)
+  clang-format. (#GH154743) |se| |br|
+  **EDIT:** This feature was later reverted from upstream LLVM (#GH186614), and
+  it's currently not planned to land again due to the library dependencies it
+  would need. We didn't revert this change from the release branch for ABI
+  compatibility reasons. We are sorry for the inconvinience.
+  Read more about this in the relevant
+  `LLVM Discourse thread <https://discourse.llvm.org/t/can-we-link-clang-format-into-clanganalysis/89014/7>`__.
+
 - ``[[clang::suppress]]`` now can suppress diagnostics within primary templates.
   (#GH168954)
 - Improved the false-positive suppression for ``std::unique_ptr`` and

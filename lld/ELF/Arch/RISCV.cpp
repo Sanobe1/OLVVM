@@ -706,6 +706,8 @@ void elf::initSymbolAnchors(Ctx &ctx) {
     if (!(osec->flags & SHF_EXECINSTR))
       continue;
     for (InputSection *sec : getInputSections(*osec, storage)) {
+      if (isa<SyntheticSection>(sec))
+        continue;
       sec->relaxAux = make<RelaxAux>();
       if (sec->relocs().size()) {
         sec->relaxAux->relocDeltas =
@@ -715,28 +717,33 @@ void elf::initSymbolAnchors(Ctx &ctx) {
       }
     }
   }
-  // Store anchors (st_value and st_value+st_size) for symbols relative to text
-  // sections.
+  // Store symbol anchors for adjusting st_value/st_size during relaxation.
+  // We include symbols where d->file == file for the prevailing copies.
   //
   // For a defined symbol foo, we may have `d->file != file` with --wrap=foo.
   // We should process foo, as the defining object file's symbol table may not
-  // contain foo after redirectSymbols changed the foo entry to __wrap_foo. To
-  // avoid adding a Defined that is undefined in one object file, use
-  // `!d->scriptDefined` to exclude symbols that are definitely not wrapped.
+  // contain foo after redirectSymbols changed the foo entry to __wrap_foo. Use
+  // `d->scriptDefined` to include such symbols.
   //
   // `relaxAux->anchors` may contain duplicate symbols, but that is fine.
+  auto addAnchor = [](Defined *d) {
+    if (auto *sec = dyn_cast_or_null<InputSection>(d->section))
+      if (sec->flags & SHF_EXECINSTR && sec->relaxAux) {
+        // If sec is discarded, relaxAux will be nullptr.
+        sec->relaxAux->anchors.push_back({d->value, d, false});
+        sec->relaxAux->anchors.push_back({d->value + d->size, d, true});
+      }
+  };
   for (InputFile *file : ctx.objectFiles)
     for (Symbol *sym : file->getSymbols()) {
       auto *d = dyn_cast<Defined>(sym);
-      if (!d || (d->file != file && !d->scriptDefined))
-        continue;
-      if (auto *sec = dyn_cast_or_null<InputSection>(d->section))
-        if (sec->flags & SHF_EXECINSTR && sec->relaxAux) {
-          // If sec is discarded, relaxAux will be nullptr.
-          sec->relaxAux->anchors.push_back({d->value, d, false});
-          sec->relaxAux->anchors.push_back({d->value + d->size, d, true});
-        }
+      if (d && (d->file == file || d->scriptDefined))
+        addAnchor(d);
     }
+  // Add anchors for IRELATIVE symbols (see `handleNonPreemptibleIfunc`).
+  // Their values must be adjusted so IRELATIVE addends remain correct.
+  for (Defined *d : ctx.irelativeSyms)
+    addAnchor(d);
   // Sort anchors by offset so that we can find the closest relocation
   // efficiently. For a zero size symbol, ensure that its start anchor precedes
   // its end anchor. For two symbols with anchors at the same offset, their
@@ -745,6 +752,8 @@ void elf::initSymbolAnchors(Ctx &ctx) {
     if (!(osec->flags & SHF_EXECINSTR))
       continue;
     for (InputSection *sec : getInputSections(*osec, storage)) {
+      if (!sec->relaxAux)
+        continue;
       llvm::sort(sec->relaxAux->anchors, [](auto &a, auto &b) {
         return std::make_pair(a.offset, a.end) <
                std::make_pair(b.offset, b.end);
@@ -975,7 +984,8 @@ bool RISCV::relaxOnce(int pass) const {
     if (!(osec->flags & SHF_EXECINSTR))
       continue;
     for (InputSection *sec : getInputSections(*osec, storage))
-      changed |= relax(ctx, pass, *sec);
+      if (sec->relaxAux)
+        changed |= relax(ctx, pass, *sec);
   }
   return changed;
 }
@@ -1099,6 +1109,8 @@ void RISCV::finalizeRelax(int passes) const {
     if (!(osec->flags & SHF_EXECINSTR))
       continue;
     for (InputSection *sec : getInputSections(*osec, storage)) {
+      if (!sec->relaxAux)
+        continue;
       RelaxAux &aux = *sec->relaxAux;
       if (!aux.relocDeltas)
         continue;

@@ -7,7 +7,7 @@ endif()
 set(req_ver "${LLVM_VERSION_MAJOR}.${LLVM_VERSION_MINOR}.${LLVM_VERSION_PATCH}")
 if(LLVM_VERSION_MAJOR AND NOT (CMAKE_CXX_COMPILER_ID MATCHES "[Cc]lang" AND
    ${CMAKE_CXX_COMPILER_VERSION} VERSION_EQUAL "${req_ver}"))
-  message(FATAL_ERROR "Cannot build libc for GPU. CMake compiler "
+   message(WARNING "libc for GPU requires an up-to-date clang. CMake compiler "
                       "'${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}' "
                       " is not 'Clang ${req_ver}'.")
 endif()
@@ -17,8 +17,8 @@ if(NOT LLVM_LIBC_FULL_BUILD)
 endif()
 
 # Set the required flags globally so standard CMake utilities can compile.
-if(LIBC_TARGET_TRIPLE)
-  set(CMAKE_REQUIRED_FLAGS "--target=${LIBC_TARGET_TRIPLE}")
+if(NOT CMAKE_CXX_COMPILER_TARGET)
+  set(CMAKE_REQUIRED_FLAGS "${LIBC_COMPILE_OPTIONS_DEFAULT}")
 endif()
 
 # Optionally set up a job pool to limit the number of GPU tests run in parallel.
