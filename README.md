@@ -1,4 +1,21 @@
-# LLVM Obfuscator (LLVM 22, in-tree)
+# LLVM Obfuscator (LLVM 22, in-tree) — MOVED
+
+> [!IMPORTANT]
+> **This project now lives at 👉 https://github.com/und3ath/xollvm**
+>
+> This tree is the **legacy in-tree fork**, kept for reference only. New work happens in
+> **xollvm**.
+>
+> **Why the move:** the in-tree design forced the obfuscator to live *inside* an LLVM
+> checkout — you had to fork the monorepo, patch `PassBuilder.cpp` / `PassRegistry.def` /
+> the CMake files, and rebuild all of LLVM just to change a pass. Every LLVM release meant
+> re-rebasing the fork. **xollvm** drops all of that: it is **fork-free with zero LLVM source
+> edits**, plugging into **stock LLVM** as a static extension (`LLVM_EXTERNAL_PROJECTS`) or a
+> loadable `-fpass-plugin` (`Obfuscator.so`). Same passes, no monorepo pain.
+
+<p align="center">
+  <img src="docs/img/ollvm.png" alt="LLVM Obfuscator logo" width="200">
+</p>
 
 An **in-tree** LLVM obfuscation framework integrated into the **new pass manager** (NPM).
 Configuration is driven by **source-level annotations** (`llvm.global.annotations`) and resolved once per module into a cached, deterministic configuration map.
