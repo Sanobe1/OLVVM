@@ -19,6 +19,7 @@ jobs:
       - name: Checkout OLLVM
         uses: actions/checkout@v4
         with:
+          ref: 331dfc9938e2d2de9ca53eb797526093828892b6
           fetch-depth: 1
 
       - name: Install build tools
@@ -77,7 +78,10 @@ jobs:
 
       - name: Package toolchain
         run: |
-          tar -C install -cf - . | zstd -T0 -10 -o ollvm22-macos-release.tar.zst
+          test -x install/bin/clang
+          test -e install/bin/clang++
+          test -d install/lib/clang
+          tar -C install -cf - bin/clang bin/clang++ lib/clang | zstd -T0 -10 -o ollvm22-macos-release.tar.zst
           shasum -a 256 ollvm22-macos-release.tar.zst > ollvm22-macos-release.tar.zst.sha256
           ls -lh ollvm22-macos-release.tar.zst*
 
