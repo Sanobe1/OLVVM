@@ -19,7 +19,7 @@ jobs:
       - name: Checkout OLLVM
         uses: actions/checkout@v4
         with:
-          ref: 331dfc9938e2d2de9ca53eb797526093828892b6
+          ref: 331dfc99399758c5d8f84a0a8411f008e1b6e33a
           fetch-depth: 1
 
       - name: Install build tools
