@@ -1,0 +1,97 @@
+name: Build macOS OLLVM for Codemagic
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ollvm-macos-codemagic-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: macos-14
+    timeout-minutes: 360
+
+    steps:
+      - name: Checkout OLLVM
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Install build tools
+        run: |
+          brew install ninja ccache zstd
+          echo "runner=$(uname -s)-$(uname -m)"
+          cmake --version
+          ninja --version
+
+      - name: Restore compiler cache
+        uses: hendrikmuhs/ccache-action@v1.2
+        with:
+          key: macos-ollvm-22-release
+          max-size: 3G
+
+      - name: Configure
+        run: |
+          cmake -S llvm -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX="$GITHUB_WORKSPACE/install" \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+            -DLLVM_ENABLE_PROJECTS="clang" \
+            -DLLVM_ENABLE_RTTI=ON \
+            -DLLVM_ENABLE_EH=ON \
+            -DLLVM_TARGETS_TO_BUILD="X86;AArch64;ARM" \
+            -DLLVM_INCLUDE_TESTS=OFF \
+            -DLLVM_BUILD_TESTS=OFF \
+            -DLLVM_INCLUDE_BENCHMARKS=OFF \
+            -DLLVM_BUILD_BENCHMARKS=OFF \
+            -DLLVM_INCLUDE_EXAMPLES=OFF \
+            -DLLVM_ENABLE_ASSERTIONS=OFF \
+            -DLLVM_ENABLE_ZSTD=OFF \
+            -DLLVM_ENABLE_ZLIB=OFF \
+            -DLLVM_ENABLE_LIBXML2=OFF \
+            -DLLVM_ENABLE_TERMINFO=OFF \
+            -DLLVM_PARALLEL_LINK_JOBS=1
+
+      - name: Build and install compiler
+        run: cmake --build build --parallel --target install
+
+      - name: Verify OLLVM pipeline
+        run: |
+          cat > smoke.c <<'EOF'
+          __attribute__((annotate("obf: substitution(loop=2), bcf(prob=40,loop=1), flattening(minBlocks=3)")))
+          int protected_value(int value) { return value * 7 + 3; }
+          int main(void) { return protected_value(5) == 38 ? 0 : 1; }
+          EOF
+          install/bin/clang smoke.c -O1 \
+            -mllvm -passes=obfuscation \
+            -mllvm -obf-seed=777 \
+            -mllvm -obf-deterministic \
+            -o smoke
+          ./smoke
+          install/bin/clang --version
+
+      - name: Package toolchain
+        run: |
+          tar -C install -cf - . | zstd -T0 -10 -o ollvm22-macos-release.tar.zst
+          shasum -a 256 ollvm22-macos-release.tar.zst > ollvm22-macos-release.tar.zst.sha256
+          ls -lh ollvm22-macos-release.tar.zst*
+
+      - name: Upload Codemagic toolchain
+        id: upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: ollvm22-macos-release
+          path: |
+            ollvm22-macos-release.tar.zst
+            ollvm22-macos-release.tar.zst.sha256
+          retention-days: 14
+          compression-level: 0
+          if-no-files-found: error
+
+      - name: Publish artifact id
+        run: echo "artifact-id=${{ steps.upload.outputs.artifact-id }}"
